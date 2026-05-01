@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: whoop
+    schema: raw
+    tables:
+      - name: whoop_events
+        description: Raw JSON blobs from Whoop API, one row per record per endpoint.
