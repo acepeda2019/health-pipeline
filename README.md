@@ -6,7 +6,7 @@ Personal health data pipeline. Ingests data from Whoop, Withings, MyFitnessPal, 
 
 | Layer | Tool |
 |---|---|
-| Orchestration | Apache Airflow 2.8 |
+| Orchestration | Apache Airflow 3.2.1 |
 | Storage | Postgres 15 |
 | Transformation | dbt |
 | Visualization | Lightdash |
@@ -40,7 +40,7 @@ cp .env.example .env
 # Fernet key for Airflow
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
-# Webserver secret key
+# API secret key
 openssl rand -hex 32
 ```
 
@@ -53,15 +53,50 @@ docker compose up airflow-init  # run once on first start
 docker compose up -d
 ```
 
-### 4. Access services
+### 4. Set up dbt
 
-| Service | URL | Default credentials |
+Install dbt with the Postgres adapter, then configure your connection profile:
+
+```bash
+pip install dbt-postgres   # or: uv add dbt-postgres
+
+cp dbt/profiles.yml.example ~/.dbt/profiles.yml
+# Edit ~/.dbt/profiles.yml — set password to match POSTGRES_PASSWORD in .env
+```
+
+Verify the connection:
+
+```bash
+cd dbt
+dbt debug
+```
+
+### 5. Connect Lightdash
+
+Install the Lightdash CLI and link it to your local instance:
+
+```bash
+npm install -g @lightdash/cli
+
+# Generate a personal access token at http://localhost:3000 → Settings → API tokens
+lightdash login http://localhost:3000 --token <your_token>
+
+# Register the dbt project with Lightdash (run once)
+cd dbt
+lightdash deploy --create
+```
+
+After the initial deploy, use `lightdash deploy` (no `--create`) to push model changes.
+
+### 6. Access services
+
+| Service | URL | Notes |
 |---|---|---|
-| Airflow | http://localhost:8080 | admin / admin |
-| Lightdash | http://localhost:3000 | set on first visit |
-| Postgres | localhost:5432 | see .env |
+| Airflow | http://localhost:8080 | Auth disabled in local dev (`SIMPLE_AUTH_MANAGER_ALL_ADMINS=True`) |
+| Lightdash | http://localhost:3000 | Set up on first visit |
+| Postgres | localhost:5432 | Credentials in `.env` |
 
-### 5. Drop manual exports
+### 7. Drop manual exports
 
 ```
 data/raw/apple_health/   ← export.xml from iPhone Health app
@@ -77,6 +112,8 @@ health-pipeline/
 ├── airflow/
 │   └── dags/            # one DAG per source
 ├── dbt/
+│   ├── dbt_project.yml
+│   ├── profiles.yml.example   # committed template
 │   └── models/
 │       ├── staging/     # typed, validated source models
 │       └── marts/       # clean metrics for Lightdash
@@ -91,4 +128,4 @@ health-pipeline/
 
 - **Phase 1** — Local MVP: all sources ingesting, basic dbt models, Lightdash dashboard
 - **Phase 2** — Harden: dbt tests, data quality checks, stable schema
-- **Phase 3** — GCP: migrate to Cloud Composer, BigQuery, Terraform
+- **Phase 3** — GCP: VM deploy, BigQuery, Terraform, Secret Manager
