@@ -5,7 +5,6 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "anthropic>=0.40.0",
     "cryptography>=47.0.0",
     "dbt-postgres>=1.10.0",
     "python-dotenv>=1.2.2",

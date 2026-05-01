@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-SessionEnd hook: reads the conversation JSONL, calls Claude API to generate
-a structured session log, writes docs/dev-log/session-NNN.md, and appends
-a row to docs/dev-log/index.md.
+SessionEnd hook: reads the conversation JSONL and generates a session log
+from the raw transcript — no API calls, no cost.
 
-Invoked automatically by Claude Code on session end.
-Reads the hook payload JSON from stdin.
+Extracts: user messages, files created/modified, git commits made.
+Writes docs/dev-log/session-NNN.md and appends a row to index.md.
 """
 
 import json
@@ -17,9 +16,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-def parse_transcript(transcript_path: str) -> str:
-    """Extract human-readable user/assistant exchanges from JSONL."""
-    messages = []
+def parse_transcript(transcript_path: str):
+    """
+    Returns:
+      user_messages: list of str (what the user typed)
+      files_written: list of str (paths passed to Write tool)
+      files_edited:  list of str (paths passed to Edit tool)
+      commits:       list of str (git commit -m values found in Bash calls)
+    """
+    user_messages = []
+    files_written = []
+    files_edited = []
+    commits = []
+
     with open(transcript_path) as f:
         for raw in f:
             raw = raw.strip()
@@ -30,43 +39,70 @@ def parse_transcript(transcript_path: str) -> str:
             except json.JSONDecodeError:
                 continue
 
+            # User text messages (skip tool_result blocks)
             if entry.get("type") == "user":
                 content = entry.get("message", {}).get("content", "")
                 if isinstance(content, str):
                     text = content.strip()
+                    if text:
+                        user_messages.append(text)
                 elif isinstance(content, list):
-                    # Skip tool_result blocks; keep plain text blocks
-                    parts = []
-                    for block in content:
-                        if isinstance(block, dict) and block.get("type") == "text":
-                            parts.append(block.get("text", ""))
-                    text = " ".join(parts).strip()
-                else:
-                    continue
-                if text:
-                    messages.append(f"USER: {text}")
-
-            elif entry.get("type") == "assistant":
-                content = entry.get("message", {}).get("content", [])
-                if isinstance(content, list):
-                    parts = []
-                    for block in content:
-                        if isinstance(block, dict) and block.get("type") == "text":
-                            parts.append(block.get("text", ""))
+                    parts = [
+                        b.get("text", "") for b in content
+                        if isinstance(b, dict) and b.get("type") == "text"
+                    ]
                     text = " ".join(parts).strip()
                     if text:
-                        # Truncate very long assistant responses
-                        messages.append(f"ASSISTANT: {text[:800]}")
+                        user_messages.append(text)
 
-    return "\n\n".join(messages)
+            # Assistant tool calls
+            elif entry.get("type") == "assistant":
+                content = entry.get("message", {}).get("content", [])
+                if not isinstance(content, list):
+                    continue
+                for block in content:
+                    if not isinstance(block, dict) or block.get("type") != "tool_use":
+                        continue
+                    name = block.get("name", "")
+                    inp = block.get("input", {})
+
+                    if name == "Write":
+                        path = inp.get("file_path", "")
+                        if path:
+                            files_written.append(path)
+
+                    elif name == "Edit":
+                        path = inp.get("file_path", "")
+                        if path and path not in files_edited:
+                            files_edited.append(path)
+
+                    elif name == "Bash":
+                        cmd = inp.get("command", "")
+                        # Extract git commit messages
+                        m = re.search(r'git commit -m ["\']([^"\']+)["\']', cmd)
+                        if not m:
+                            # HEREDOC style
+                            m = re.search(r'git commit -m.*?EOF\n(.*?)\n.*?EOF', cmd, re.DOTALL)
+                            if m:
+                                first_line = m.group(1).strip().splitlines()[0].strip()
+                                commits.append(first_line)
+                        else:
+                            commits.append(m.group(1).split("\n")[0].strip())
+
+    return user_messages, files_written, files_edited, commits
+
+
+def shorten_path(path: str, cwd: str) -> str:
+    """Make absolute path relative to project root if possible."""
+    try:
+        return str(Path(path).relative_to(cwd))
+    except ValueError:
+        return path
 
 
 def next_session_number(dev_log_dir: Path) -> int:
-    existing = list(dev_log_dir.glob("session-???.md"))
-    if not existing:
-        return 1
     numbers = []
-    for f in existing:
+    for f in dev_log_dir.glob("session-???.md"):
         m = re.search(r"session-(\d+)", f.stem)
         if m:
             numbers.append(int(m.group(1)))
@@ -79,7 +115,6 @@ def append_to_index(dev_log_dir: Path, session_num: int, date: str, focus: str):
     filename = f"session-{session_num:03d}.md"
     new_row = f"| {session_num} | {date} | {focus} | [{filename}]({filename}) |"
 
-    # Find the last table row and append after it
     lines = content.splitlines()
     last_row_idx = None
     for i, line in enumerate(lines):
@@ -92,6 +127,51 @@ def append_to_index(dev_log_dir: Path, session_num: int, date: str, focus: str):
         lines.append(new_row)
 
     index_path.write_text("\n".join(lines) + "\n")
+
+
+def build_session_log(session_num: int, date: str, cwd: str,
+                      user_messages, files_written, files_edited, commits) -> tuple[str, str]:
+    """Returns (markdown_content, one_line_focus)."""
+
+    # Focus: first substantive user message, trimmed
+    focus = next((m for m in user_messages if len(m) > 10), "general session work")
+    focus = re.sub(r'\s+', ' ', focus).strip()
+    if len(focus) > 60:
+        focus = focus[:57] + "..."
+
+    lines = [
+        f"# Session {session_num:03d} — {date}",
+        "",
+        "## What Was Asked",
+    ]
+    for i, msg in enumerate(user_messages, 1):
+        # Truncate very long messages (screenshots, pastes)
+        display = msg if len(msg) <= 200 else msg[:197] + "..."
+        display = display.replace("\n", " ")
+        lines.append(f"{i}. {display}")
+
+    if files_written or files_edited:
+        lines += ["", "## Files Touched"]
+        seen = set()
+        for path in files_written:
+            rel = shorten_path(path, cwd)
+            if rel not in seen:
+                lines.append(f"- `{rel}` (created)")
+                seen.add(rel)
+        for path in files_edited:
+            rel = shorten_path(path, cwd)
+            if rel not in seen:
+                lines.append(f"- `{rel}` (modified)")
+                seen.add(rel)
+
+    if commits:
+        lines += ["", "## Commits Made"]
+        for c in commits:
+            lines.append(f"- {c}")
+
+    lines += ["", "## Notes", "_Add context, decisions, or issues here after reviewing._"]
+
+    return "\n".join(lines) + "\n", focus
 
 
 def main():
@@ -119,92 +199,25 @@ def main():
         print(f"[session-log] {dev_log_dir} does not exist, skipping.")
         return
 
-    transcript = parse_transcript(transcript_path)
-    if len(transcript) < 200:
+    user_messages, files_written, files_edited, commits = parse_transcript(transcript_path)
+
+    if len(user_messages) < 2:
         print("[session-log] Session too short to log, skipping.")
-        return
-
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("[session-log] ANTHROPIC_API_KEY not set, skipping.")
-        return
-
-    try:
-        import anthropic
-    except ImportError:
-        print("[session-log] anthropic package not installed, skipping.")
         return
 
     session_num = next_session_number(dev_log_dir)
     date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    client = anthropic.Anthropic(api_key=api_key)
-
-    prompt = f"""You are writing a development session log for a personal health data pipeline project (Airflow + Postgres + dbt + Lightdash). The project owner is a data engineer building this as a learning project.
-
-Analyze this conversation transcript and produce two things:
-
-1. A one-line "focus" summary (10 words max) for the session index table
-2. A full session log markdown document
-
-Return your response as JSON with this exact structure:
-{{
-  "focus": "short one-line description",
-  "content": "full markdown session log here"
-}}
-
-The markdown session log must follow this template exactly:
-# Session {session_num:03d} — <descriptive title>
-
-## Goals
-<what the user was trying to accomplish>
-
-## Accomplished
-<bulleted list of what actually got done>
-
-## Key Decisions
-<bulleted list of technical decisions made and why — omit if none>
-
-## Issues & Fixes
-<bulleted list: problem → fix — omit if none>
-
-## Pending / Next Steps
-<bulleted list of what's left or what to do next session>
-
-Keep it concise, technical, and useful for resuming work in a future session.
-
-Transcript:
-<transcript>
-{transcript[:40000]}
-</transcript>"""
-
-    try:
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        result_text = response.content[0].text.strip()
-
-        # Strip markdown code fences if present
-        result_text = re.sub(r"^```(?:json)?\n?", "", result_text)
-        result_text = re.sub(r"\n?```$", "", result_text)
-
-        result = json.loads(result_text)
-        focus = result.get("focus", "session work")
-        session_content = result.get("content", "")
-    except Exception as e:
-        print(f"[session-log] Claude API call failed: {e}")
-        return
+    content, focus = build_session_log(
+        session_num, date, cwd,
+        user_messages, files_written, files_edited, commits,
+    )
 
     session_file = dev_log_dir / f"session-{session_num:03d}.md"
-    session_file.write_text(session_content + "\n")
+    session_file.write_text(content)
     append_to_index(dev_log_dir, session_num, date, focus)
 
-    subprocess.run(
-        ["git", "add", str(dev_log_dir)],
-        cwd=cwd, capture_output=True,
-    )
+    subprocess.run(["git", "add", str(dev_log_dir)], cwd=cwd, capture_output=True)
     subprocess.run(
         ["git", "commit", "-m", f"docs: auto-generate session {session_num:03d} log [skip ci]"],
         cwd=cwd, capture_output=True,
