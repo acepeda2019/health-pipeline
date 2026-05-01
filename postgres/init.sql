@@ -14,3 +14,13 @@ CREATE SCHEMA IF NOT EXISTS marts;
 GRANT ALL PRIVILEGES ON SCHEMA raw TO health;
 GRANT ALL PRIVILEGES ON SCHEMA staging TO health;
 GRANT ALL PRIVILEGES ON SCHEMA marts TO health;
+
+-- Whoop raw events: one row per API record, idempotent on (endpoint, record_id)
+CREATE TABLE IF NOT EXISTS raw.whoop_events (
+    id              SERIAL PRIMARY KEY,
+    endpoint        VARCHAR(50)  NOT NULL,
+    record_id       TEXT         NOT NULL,
+    fetched_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    data            JSONB        NOT NULL,
+    UNIQUE (endpoint, record_id)
+);
