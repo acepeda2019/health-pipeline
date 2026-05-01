@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "type": "command",
+        "command": "uv run scripts/generate_session_log.py"
+      }
+    ]
+  }
+}
