@@ -1,12 +1,6 @@
 x-airflow-common: &airflow-common
-  image: apache/airflow:2.8.1-python3.11
+  image: apache/airflow:3.2.1-python3.12
   env_file: .env
-  environment:
-    AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
-    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/plugins:/opt/airflow/plugins
@@ -46,17 +40,18 @@ services:
   # Runs once on first startup to create DB tables and admin user
   airflow-init:
     <<: *airflow-common
-    command: >
-      bash -c "
-        airflow db migrate &&
-        airflow users create --username admin --password admin --firstname Health --lastname Pipeline --role Admin --email admin@localhost
-      "
+    environment:
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+    command: version
     restart: on-failure
 
   # ── Airflow webserver ─────────────────────────────────────────────────────
   airflow-webserver:
     <<: *airflow-common
-    command: webserver
+    command: api-server
     ports:
       - "8080:8080"
     healthcheck:
@@ -87,7 +82,7 @@ services:
       LIGHTDASH_SECRET: changeme-lightdash-secret
       SITE_URL: http://localhost:3000
     ports:
-      - "3000:3000"
+      - "3000:8080"
     depends_on:
       postgres:
         condition: service_healthy
