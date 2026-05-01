@@ -35,3 +35,4 @@ Read this at the start of every session to restore context. For deep detail on a
 |---|------|-------|------|
 | 1 | 2026-04-?? | Stack setup, Lightdash connection, dbt scaffold | [session-001.md](session-001.md) |
 | 2 | 2026-05-01 | Whoop OAuth2, daily ingest DAG, Airflow 3.x debugging, dbt staging models, backfill | [session-002.md](session-002.md) |
+| 3 | 2026-05-01 | im trying to start up lightdash. npm install -g npm@11.13... | [session-003.md](session-003.md) |
