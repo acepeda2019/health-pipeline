@@ -2,6 +2,8 @@
 
 This file gives Claude Code full context on this project. Read it before making any changes.
 
+**At the start of every session:** read `docs/dev-log/index.md` to restore current state, then open the most recent session file if you need detail on recent decisions.
+
 ---
 
 ## Project goal
