@@ -31,3 +31,6 @@ terraform/.terraform.lock.hcl
 
 # os
 .DS_Store
+
+# editor
+.vscode/
