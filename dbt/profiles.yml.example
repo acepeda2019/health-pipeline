@@ -1,0 +1,12 @@
+health_pipeline:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      port: 5432
+      user: health
+      password: <your_password>
+      dbname: health_pipeline
+      schema: marts
+      threads: 4
