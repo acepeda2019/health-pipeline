@@ -27,6 +27,10 @@ Read this at the start of every session to restore context. For deep detail on a
 - `raw.tokens` table is created at DAG runtime, not in `postgres/init.sql`
 - Token refresh always runs (expires_at resets to 0 after each `whoop_auth.py` run)
 
+**Dev log:**
+- Per-session files in `docs/dev-log/`, index stays lean
+- Use `/session-log` at end of each session to generate and commit the log
+
 ---
 
 ## Sessions
@@ -36,3 +40,4 @@ Read this at the start of every session to restore context. For deep detail on a
 | 1 | 2026-04-?? | Stack setup, Lightdash connection, dbt scaffold | [session-001.md](session-001.md) |
 | 2 | 2026-05-01 | Whoop OAuth2, daily ingest DAG, Airflow 3.x debugging, dbt staging models, backfill | [session-002.md](session-002.md) |
 | 3 | 2026-05-01 | im trying to start up lightdash. npm install -g npm@11.13... | [session-003.md](session-003.md) |
+| 4 | 2026-05-01 | Dev log restructure, session logging automation via `/session-log` skill | [session-004.md](session-004.md) |
