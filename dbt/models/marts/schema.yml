@@ -1,0 +1,48 @@
+version: 2
+
+models:
+  - name: mart_daily_health
+    description: "One row per night. Joins Whoop recovery and sleep data on cycle_id. Naps excluded."
+    columns:
+      - name: date
+        description: "Calendar date of the recovery/sleep record"
+        tests:
+          - not_null
+          - unique
+      - name: cycle_id
+        description: "Whoop cycle ID — primary key"
+        tests:
+          - not_null
+          - unique
+      - name: recovery_score
+        description: "Whoop recovery score 0–100. Higher is better readiness."
+        tests:
+          - not_null
+      - name: hrv_rmssd_milli
+        description: "Heart rate variability in milliseconds. Inflated on non-CPAP nights."
+      - name: resting_heart_rate
+        description: "Resting heart rate in BPM"
+      - name: spo2_percentage
+        description: "Blood oxygen percentage. Dips on non-CPAP nights."
+      - name: skin_temp_celsius
+        description: "Skin temperature in Celsius"
+      - name: is_cpap_night
+        description: "Whether CPAP was worn. Currently hardcoded false — placeholder for future data."
+      - name: sleep_start
+        description: "Timestamp when sleep session started"
+      - name: sleep_end
+        description: "Timestamp when sleep session ended"
+      - name: total_sleep_hours
+        description: "Total sleep time in hours (in-bed time minus awake time)"
+      - name: restorative_sleep_hours
+        description: "Slow wave + REM sleep in hours — the most recovery-relevant sleep"
+      - name: slow_wave_hours
+        description: "Deep (slow wave) sleep in hours"
+      - name: rem_hours
+        description: "REM sleep in hours"
+      - name: sleep_performance_pct
+        description: "Whoop's overall sleep performance score 0–100"
+      - name: sleep_efficiency_pct
+        description: "Percentage of time in bed spent asleep"
+      - name: disturbance_count
+        description: "Number of sleep disturbances detected"
