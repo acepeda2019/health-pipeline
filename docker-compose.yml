@@ -85,6 +85,8 @@ services:
       PGDATABASE: ${POSTGRES_DB}
       LIGHTDASH_SECRET: changeme-lightdash-secret
       SITE_URL: http://localhost:3000
+    volumes:
+      - dbt:/opt/dbt
     ports:
       - "3000:8080"
     depends_on:
@@ -96,6 +98,7 @@ services:
 
 volumes:
   postgres-data:
+  dbt:
 
 networks:
   health-net:
