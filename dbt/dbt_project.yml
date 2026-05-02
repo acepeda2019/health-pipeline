@@ -12,6 +12,8 @@ clean-targets: ["target", "dbt_packages"]
 models:
   health_pipeline:
     staging:
+      +schema: staging
       +materialized: view
     marts:
+      +schema: marts
       +materialized: table
