@@ -85,6 +85,7 @@ services:
       PGDATABASE: ${POSTGRES_DB}
       LIGHTDASH_SECRET: changeme-lightdash-secret
       SITE_URL: http://localhost:3000
+      PGSSLMODE: disable
     volumes:
       - ./dbt:/dbt
     ports:
