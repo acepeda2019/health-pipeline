@@ -14,8 +14,6 @@ models:
     staging:
       +schema: staging
       +materialized: view
-      +meta:
-        hidden: true
     marts:
       +schema: marts
       +materialized: table
