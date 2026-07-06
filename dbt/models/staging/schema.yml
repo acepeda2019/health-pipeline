@@ -1,0 +1,129 @@
+version: 2
+
+models:
+  - name: stg_whoop__recovery
+    description: "Typed recovery records from the Whoop API, one row per cycle."
+    columns:
+      - name: cycle_id
+        description: "Whoop cycle ID — primary key"
+        tests:
+          - not_null
+          - unique
+      - name: sleep_id
+        description: "Associated sleep record ID"
+      - name: score_state
+        description: "Scoring state (SCORED, PENDING_SCORE, etc.)"
+      - name: recovery_score
+        description: "Whoop recovery score 0–100"
+      - name: resting_heart_rate
+        description: "Resting heart rate in BPM"
+      - name: hrv_rmssd_milli
+        description: "Heart rate variability in milliseconds"
+      - name: spo2_percentage
+        description: "Blood oxygen percentage"
+      - name: skin_temp_celsius
+        description: "Skin temperature in Celsius"
+      - name: created_at
+        description: "Record creation timestamp"
+      - name: updated_at
+        description: "Record last updated timestamp"
+
+  - name: stg_whoop__sleep
+    description: "Typed sleep records from the Whoop API, one row per sleep session."
+    columns:
+      - name: sleep_id
+        description: "Sleep record ID — primary key"
+        tests:
+          - not_null
+          - unique
+      - name: cycle_id
+        description: "Associated Whoop cycle ID"
+      - name: is_nap
+        description: "True if this session is a nap rather than a main sleep"
+      - name: score_state
+        description: "Scoring state (SCORED, PENDING_SCORE, etc.)"
+      - name: timezone_offset
+        description: "Timezone offset at time of sleep"
+      - name: sleep_start
+        description: "Sleep session start timestamp"
+      - name: sleep_end
+        description: "Sleep session end timestamp"
+      - name: sleep_performance_pct
+        description: "Whoop sleep performance score 0–100"
+      - name: sleep_efficiency_pct
+        description: "Percentage of time in bed spent asleep"
+      - name: sleep_consistency_pct
+        description: "Sleep consistency score 0–100"
+      - name: respiratory_rate
+        description: "Average respiratory rate during sleep"
+      - name: total_in_bed_time_milli
+        description: "Total time in bed in milliseconds"
+      - name: total_awake_time_milli
+        description: "Total awake time in milliseconds"
+      - name: total_light_sleep_time_milli
+        description: "Total light sleep time in milliseconds"
+      - name: total_slow_wave_sleep_time_milli
+        description: "Total slow wave (deep) sleep in milliseconds"
+      - name: total_rem_sleep_time_milli
+        description: "Total REM sleep in milliseconds"
+      - name: sleep_cycle_count
+        description: "Number of sleep cycles completed"
+      - name: disturbance_count
+        description: "Number of sleep disturbances detected"
+      - name: created_at
+        description: "Record creation timestamp"
+      - name: updated_at
+        description: "Record last updated timestamp"
+
+  - name: stg_whoop__workout
+    description: "Typed workout records from the Whoop API, one row per workout session."
+    columns:
+      - name: workout_id
+        description: "Workout record ID — primary key"
+        tests:
+          - not_null
+          - unique
+      - name: sport_id
+        description: "Whoop sport type ID"
+      - name: sport_name
+        description: "Human-readable sport name"
+      - name: score_state
+        description: "Scoring state (SCORED, PENDING_SCORE, etc.)"
+      - name: timezone_offset
+        description: "Timezone offset at time of workout"
+      - name: workout_start
+        description: "Workout start timestamp"
+      - name: workout_end
+        description: "Workout end timestamp"
+      - name: strain
+        description: "Whoop strain score 0–21"
+      - name: average_heart_rate
+        description: "Average heart rate in BPM during workout"
+      - name: max_heart_rate
+        description: "Maximum heart rate in BPM during workout"
+      - name: kilojoule
+        description: "Energy output in kilojoules"
+      - name: percent_recorded
+        description: "Fraction of workout time with recorded data"
+      - name: distance_meter
+        description: "Distance covered in meters"
+      - name: altitude_gain_meter
+        description: "Altitude gained in meters"
+      - name: altitude_change_meter
+        description: "Net altitude change in meters"
+      - name: zone_zero_milli
+        description: "Time in heart rate zone 0 in milliseconds"
+      - name: zone_one_milli
+        description: "Time in heart rate zone 1 in milliseconds"
+      - name: zone_two_milli
+        description: "Time in heart rate zone 2 in milliseconds"
+      - name: zone_three_milli
+        description: "Time in heart rate zone 3 in milliseconds"
+      - name: zone_four_milli
+        description: "Time in heart rate zone 4 in milliseconds"
+      - name: zone_five_milli
+        description: "Time in heart rate zone 5 in milliseconds"
+      - name: created_at
+        description: "Record creation timestamp"
+      - name: updated_at
+        description: "Record last updated timestamp"
