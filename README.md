@@ -10,6 +10,7 @@ Personal health data pipeline. Ingests data from Whoop, Withings, MyFitnessPal, 
 | Storage | Postgres 15 |
 | Transformation | dbt |
 | Visualization | Lightdash |
+| Object storage | MinIO (S3-compatible, used by Lightdash for query result pagination) |
 | Containers | Docker Compose |
 | IaC (Phase 3) | Terraform |
 
@@ -71,30 +72,39 @@ cd dbt
 dbt debug
 ```
 
-### 5. Connect Lightdash
+### 5. Log into Lightdash and connect the dbt project
 
-Install the Lightdash CLI and link it to your local instance:
+**Web login (first visit only)** — this creates your Lightdash user account, separate from the CLI token below:
+
+1. Open http://localhost:3000
+2. Follow the "Create your account" prompt to set up an organization admin (any email/password — it's a local install with no mail server).
+3. On future visits, log in with that same email/password at http://localhost:3000.
+
+**CLI setup** — needed to register and push the dbt project into Lightdash:
 
 ```bash
 npm install -g @lightdash/cli
 
-# Generate a personal access token at http://localhost:3000 → Settings → API tokens
+# Generate a personal access token: log into the web UI above first, then
+# Settings → Personal access tokens → Generate
 lightdash login http://localhost:3000 --token <your_token>
 
-# Register the dbt project with Lightdash (run once)
 cd dbt
-lightdash deploy --create
+lightdash deploy --create   # first time only — registers the project
 ```
 
 After the initial deploy, use `lightdash deploy` (no `--create`) to push model changes.
+
+Optional non-interactive alternative: the CLI also reads `LIGHTDASH_URL` and `LIGHTDASH_API_KEY` from the environment instead of `lightdash login` — set them in `.env` and `export $(grep -v '^#' .env | xargs)` before running CLI commands. The Docker stack itself never reads these two vars; they only matter if you use this alternative.
 
 ### 6. Access services
 
 | Service | URL | Notes |
 |---|---|---|
 | Airflow | http://localhost:8080 | Auth disabled in local dev (`SIMPLE_AUTH_MANAGER_ALL_ADMINS=True`) |
-| Lightdash | http://localhost:3000 | Set up on first visit |
+| Lightdash | http://localhost:3000 | See step 5 — create an account on first visit |
 | Postgres | localhost:5432 | Credentials in `.env` |
+| MinIO console | http://localhost:9001 | Login `minio` / `minio123` — backs Lightdash's query result storage, no manual setup needed |
 
 ### 7. Drop manual exports
 
@@ -102,6 +112,14 @@ After the initial deploy, use `lightdash deploy` (no `--create`) to push model c
 data/raw/apple_health/   ← export.xml from iPhone Health app
 data/raw/zozofit/        ← scan PDF from Zozofit app
 ```
+
+## Troubleshooting
+
+**Lightdash can't connect to Postgres over SSL.** The official `postgres:15` image ships with SSL
+disabled, but Lightdash's Postgres client attempts an SSL handshake by default and fails to connect.
+Fixed by setting `PGSSLMODE: disable` on the `lightdash` service in `docker-compose.yml` — already in
+place, no action needed on a fresh clone. Revisit this when migrating to GCP (Phase 3), since a
+production Postgres/Cloud SQL instance should have SSL enforced rather than disabled.
 
 ## Project structure
 

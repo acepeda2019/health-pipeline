@@ -23,7 +23,7 @@ DB_CONN = "postgresql://{user}:{password}@postgres:5432/{db}".format(
 ENDPOINTS = {
     "recovery": "/v2/recovery",
     "sleep": "/v2/activity/sleep",
-    "workout": "/v1/activity/workout",
+    "workout": "/v2/activity/workout",
 }
 
 

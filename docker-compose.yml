@@ -71,6 +71,39 @@ services:
       AIRFLOW__API__BASE_URL: http://airflow-webserver:8080
     restart: unless-stopped
 
+  # ── MinIO ─────────────────────────────────────────────────────────────────
+  # Local S3-compatible storage required by Lightdash for query result pagination.
+  # In Phase 3, swap the S3_* env vars in Lightdash to point at a GCS bucket
+  # created by Terraform — same API, no code changes needed.
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - health-net
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+        sleep 5;
+        mc alias set local http://minio:9000 minio minio123;
+        mc mb --ignore-existing local/lightdash;
+        exit 0;
+      "
+    networks:
+      - health-net
+
   # ── Lightdash ─────────────────────────────────────────────────────────────
   lightdash:
     image: lightdash/lightdash:latest
@@ -86,6 +119,12 @@ services:
       LIGHTDASH_SECRET: changeme-lightdash-secret
       SITE_URL: http://localhost:3000
       PGSSLMODE: disable
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: lightdash
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio123
+      S3_FORCE_PATH_STYLE: "true"
     volumes:
       - ./dbt:/dbt
     ports:
@@ -93,12 +132,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     networks:
       - health-net
     restart: unless-stopped
 
 volumes:
   postgres-data:
+  minio-data:
 
 networks:
   health-net:
